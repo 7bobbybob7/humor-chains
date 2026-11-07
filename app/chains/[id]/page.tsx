@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSuperadmin } from "@/lib/admin";
-import { getChain, getSteps } from "@/lib/chains";
+import { getChain, getSteps, looksConcatenated } from "@/lib/chains";
 import { Banner, one } from "../../banner";
 import { ChainForm } from "./chain-form";
 import { StepCard } from "./step-card";
@@ -57,6 +57,23 @@ export default async function ChainPage({
         </div>
       </div>
 
+      {looksConcatenated(steps) && (
+        <p className="panel-sm mt-6 bg-yellow-tint px-4 py-3 text-sm">
+          <span className="font-bold">Heads up:</span> no step after the first
+          refers to{" "}
+          <code className="rounded bg-ink/10 px-1 py-0.5 font-mono text-xs">
+            {"{{input}}"}
+          </code>
+          , so nothing is passed along. This chain was written for the public
+          app, which joins every step into one prompt. Run step by step it will
+          read oddly — add{" "}
+          <code className="rounded bg-ink/10 px-1 py-0.5 font-mono text-xs">
+            {"{{input}}"}
+          </code>{" "}
+          to the steps that should build on the one before.
+        </p>
+      )}
+
       <section className="panel mt-7 p-6">
         <h2 className="font-display text-lg font-black">Chain details</h2>
         <div className="mt-4">
@@ -80,11 +97,20 @@ export default async function ChainPage({
           <code className="rounded bg-ink/10 px-1 py-0.5 font-mono text-xs">
             {"{{topic}}"}
           </code>{" "}
-          and{" "}
+          ,{" "}
           <code className="rounded bg-ink/10 px-1 py-0.5 font-mono text-xs">
             {"{{count}}"}
+          </code>
+          ,{" "}
+          <code className="rounded bg-ink/10 px-1 py-0.5 font-mono text-xs">
+            {"{{terms}}"}
           </code>{" "}
-          also work. The last step should return a JSON array of captions.
+          and{" "}
+          <code className="rounded bg-ink/10 px-1 py-0.5 font-mono text-xs">
+            {"{{examples}}"}
+          </code>{" "}
+          also work — the last two come from the Terms and Examples tables in
+          the admin. The final step should return a JSON array of captions.
         </p>
 
         {steps.length === 0 ? (

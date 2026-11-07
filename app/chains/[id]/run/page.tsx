@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSuperadmin } from "@/lib/admin";
-import { getChain, getSteps, listImages } from "@/lib/chains";
+import { getChain, getSteps, listImages, looksConcatenated } from "@/lib/chains";
 import { RunForm } from "./run-form";
 
 export const dynamic = "force-dynamic";
@@ -64,6 +64,19 @@ export default async function RunPage({ params }: PageProps<"/chains/[id]/run">)
         </div>
       ) : (
         <>
+          {looksConcatenated(steps) && (
+            <p className="panel-sm mt-6 bg-yellow-tint px-4 py-3 text-sm">
+              <span className="font-bold">Heads up:</span> this chain&apos;s
+              steps never refer to{" "}
+              <code className="rounded bg-ink/10 px-1 py-0.5 font-mono text-xs">
+                {"{{input}}"}
+              </code>
+              , so each one starts fresh instead of building on the last. It was
+              written for the public app, which joins them into a single prompt.
+              Expect the output to read oddly.
+            </p>
+          )}
+
           <ol className="panel-sm mt-6 divide-y divide-rule bg-paper-raised">
             {active.map((s, i) => (
               <li key={s.id} className="flex items-center gap-3 px-4 py-2.5">

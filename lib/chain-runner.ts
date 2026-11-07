@@ -73,15 +73,30 @@ function mimeFromPath(path: string): string {
   return "image/jpeg";
 }
 
-/** Fills the placeholders a step template may use. */
+/**
+ * Fills the placeholders a step template may use.
+ *
+ * {{terms}} and {{examples}} exist because the chains seeded in week 7 were
+ * written for the public app's pipeline, which substitutes them. Leaving them
+ * out here meant a step whose whole template was "{{terms}}" sent that literal
+ * string to the model as its entire prompt.
+ */
 function render(
   template: string,
-  vars: { input: string; topic: string; count: number },
+  vars: {
+    input: string;
+    topic: string;
+    count: number;
+    terms: string;
+    examples: string;
+  },
 ): string {
   return template
     .replaceAll("{{input}}", vars.input)
     .replaceAll("{{topic}}", vars.topic)
     .replaceAll("{{count}}", String(vars.count))
+    .replaceAll("{{terms}}", vars.terms)
+    .replaceAll("{{examples}}", vars.examples)
     .trim();
 }
 
@@ -182,11 +197,41 @@ export async function runChain(opts: {
   const supabase = await createClient();
   const startedAt = Date.now();
 
-  const { data: modelRows } = await supabase
-    .from("llm_models")
-    .select("id, model_key")
-    .eq("is_active", true)
-    .order("priority", { ascending: true });
+  const [{ data: modelRows }, termsRes, examplesRes] = await Promise.all([
+    supabase
+      .from("llm_models")
+      .select("id, model_key")
+      .eq("is_active", true)
+      .order("priority", { ascending: true }),
+    supabase.from("terms").select("term, kind").eq("is_active", true).limit(60),
+    supabase
+      .from("ai_generation_examples")
+      .select("topic, example_caption")
+      .eq("chain_id", chainId)
+      .eq("is_active", true)
+      .limit(5),
+  ]);
+
+  // Same shape the public app builds, so a chain authored there reads the same
+  // way here.
+  const allTerms = termsRes.data ?? [];
+  const avoid = allTerms.filter((t) => t.kind === "avoid").map((t) => t.term);
+  const prefer = allTerms.filter((t) => t.kind === "prefer").map((t) => t.term);
+  const termsText = [
+    avoid.length ? `Avoid these words: ${avoid.join(", ")}.` : "",
+    prefer.length ? `These land well when they fit: ${prefer.join(", ")}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const exampleRows = examplesRes.data ?? [];
+  const examplesText =
+    exampleRows.length > 0
+      ? "Examples of the right voice:\n" +
+        exampleRows
+          .map((e) => `- "${e.topic}" -> ${e.example_caption}`)
+          .join("\n")
+      : "";
 
   const models: ModelRow[] = modelRows?.length
     ? (modelRows as ModelRow[])
@@ -262,6 +307,8 @@ export async function runChain(opts: {
       input: carried,
       topic,
       count: CAPTIONS_PER_RUN,
+      terms: termsText,
+      examples: examplesText,
     });
 
     if (!prompt) {

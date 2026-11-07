@@ -174,6 +174,24 @@ export async function listChainRuns(chainId: number): Promise<RunRow[]> {
   return (data ?? []) as RunRow[];
 }
 
+/**
+ * True when a chain reads as one prompt cut into pieces rather than a sequence.
+ *
+ * The chains seeded in week 7 (house-style, absurdist) are Persona / Task /
+ * Rules / Vocabulary / Examples / Format -- fragments the public app
+ * concatenates into a single prompt. Run step by step they misbehave in a way
+ * no placeholder substitution can fix: "Persona" alone is not a prompt, and a
+ * step that never mentions {{input}} drops whatever the step before it said.
+ *
+ * The signal is exactly that: no step after the first refers to {{input}}, so
+ * nothing is threaded through.
+ */
+export function looksConcatenated(steps: Step[]): boolean {
+  const active = steps.filter((s) => s.is_active);
+  if (active.length < 2) return false;
+  return !active.slice(1).some((s) => s.template.includes("{{input}}"));
+}
+
 /** Turns a chain name into the unique slug the table requires. */
 export function slugify(name: string): string {
   return name
