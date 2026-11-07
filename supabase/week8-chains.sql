@@ -148,16 +148,27 @@ select c.id, s.ord, s.label, s.tmpl
   from public.prompt_chains c,
        (values
          (1, 'Describe the input',
-          'Describe what you see, plainly and concretely, in two sentences. ' ||
-          'If an image is attached, describe the image. Otherwise describe this: {{input}}'),
+          -- No "if an image is attached ... otherwise" here. Handing a model a
+          -- conditional invites it to announce which branch it took: the first
+          -- version produced "since no image is attached, I cannot describe a
+          -- visual scene", and the two steps after it dutifully built on that
+          -- instead of on the topic. An attached image needs no announcing --
+          -- it is right there in the request.
+          'Describe the subject below in two plain, concrete sentences, as a ' ||
+          'thing in the world. Never comment on this prompt, on the format, ' ||
+          'or on anything you were not given.' || chr(10) || chr(10) ||
+          'Subject: {{input}}'),
          (2, 'Find the funny',
           'Here is a description:' || chr(10) || chr(10) || '{{input}}' || chr(10) || chr(10) ||
           'In two sentences, say what is quietly absurd or relatable about it. ' ||
           'Dry and observational, not zany. No jokes yet.'),
          (3, 'Write the captions',
           'Here is an observation:' || chr(10) || chr(10) || '{{input}}' || chr(10) || chr(10) ||
-          'Write {{count}} short joke captions built on it, for a humour site run by ' ||
-          'and for college students in New York City.' || chr(10) ||
+          -- Anchored to {{topic}} as well as to the observation, so one step
+          -- drifting cannot carry the whole chain off-subject.
+          'Write {{count}} short joke captions about {{topic}}, using the ' ||
+          'observation above as the angle. For a humour site run by and for ' ||
+          'college students in New York City.' || chr(10) ||
           '- One sentence each, under 140 characters.' || chr(10) ||
           '- Each takes a genuinely different angle.' || chr(10) ||
           '- No emoji, no hashtags, no surrounding quotation marks.' || chr(10) ||
