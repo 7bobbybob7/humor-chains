@@ -165,4 +165,11 @@ select c.id, s.ord, s.label, s.tmpl
           'Return a JSON array of strings and nothing else.')
        ) as s(ord, label, tmpl)
  where c.slug = 'describe-then-joke'
-on conflict (chain_id, step_order) do nothing;
+   -- NOT EXISTS rather than ON CONFLICT: section 1 made this constraint
+   -- deferrable, and Postgres refuses a deferrable constraint as an
+   -- ON CONFLICT arbiter ("does not support deferrable unique constraints
+   -- ... as arbiters"). This keeps the insert re-runnable.
+   and not exists (
+     select 1 from public.prompt_chain_steps x
+      where x.chain_id = c.id and x.step_order = s.ord
+   );

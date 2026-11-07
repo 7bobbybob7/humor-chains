@@ -133,9 +133,9 @@ begin
   insert into results values (i, 'moving the first step up is a no-op',
     'A=1,C=2,B=5', orders, case when orders = 'A=1,C=2,B=5' then 'PASS' else 'FAIL' end);
 
-  reset role;
+  execute 'reset role';
 exception when others then
-  reset role;
+  execute 'reset role';
   insert into results values (98, 'superadmin reorder block',
     'no exception', substr(sqlerrm, 1, 60), 'FAIL');
 end $$;
@@ -182,9 +182,9 @@ begin
   insert into results values (i, 'non-admin can still READ chains',
     '1 rows', v, case when v = '1 rows' then 'PASS' else 'FAIL' end);
 
-  reset role;
+  execute 'reset role';
 exception when others then
-  reset role;
+  execute 'reset role';
   insert into results values (96, 'non-admin block', 'no exception',
     substr(sqlerrm, 1, 60), 'FAIL');
 end $$;
@@ -199,15 +199,22 @@ begin
   execute 'set local request.jwt.claims = ''{"role":"anon"}''';
 
   v := pg_temp.run('select 1 from public.prompt_chains limit 1');
+  -- Either outcome means no leak: the policy is "to authenticated", so anon
+  -- matches no policy (0 rows), and if anon also lacks the table GRANT the
+  -- read raises instead. A FAIL here means rows actually came back.
   insert into results values (14, 'anon cannot read chains',
-    '0 rows', v, case when v = '0 rows' then 'PASS' else 'FAIL (leaked)' end);
+    '0 rows or error', v,
+    case when v = '0 rows' or v like 'ERROR%' then 'PASS' else 'FAIL (leaked)' end);
 
-  reset role;
+  execute 'reset role';
 exception when others then
-  reset role;
+  execute 'reset role';
   insert into results values (95, 'anon block', 'no exception',
     substr(sqlerrm, 1, 60), 'FAIL');
 end $$;
+
+reset role;
+reset request.jwt.claims;
 
 select n, scenario, expected, actual, verdict from results order by n;
 
